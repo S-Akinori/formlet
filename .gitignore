@@ -1,0 +1,45 @@
+# dependencies
+node_modules/
+
+# Next.js
+.next/
+out/
+
+# production
+build/
+dist/
+
+# environment variables
+.env
+.env*.local
+.env.development
+.env.production
+.env.test
+!.env.example
+
+# logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# TypeScript
+*.tsbuildinfo
+next-env.d.ts
+
+# OS and editor files
+.DS_Store
+Thumbs.db
+Desktop.ini
+.vscode/
+.idea/
+
+# local test artifacts
+coverage/
+playwright-report/
+test-results/
+*.png
+*.jpg
+*.jpeg
+*.webp

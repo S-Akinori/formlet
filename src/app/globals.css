@@ -1,0 +1,58 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+  background: #f7f7f4;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  min-height: 100dvh;
+  background:
+    linear-gradient(180deg, rgba(37, 111, 91, 0.06), transparent 340px),
+    #f7f7f4;
+  color: #18181b;
+}
+
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+::selection {
+  background: rgba(37, 111, 91, 0.18);
+}
+
+.field {
+  @apply flex flex-col gap-2;
+}
+
+.label {
+  @apply text-sm font-medium text-zinc-800;
+}
+
+.input {
+  @apply w-full rounded-md border border-line bg-white px-3 py-2.5 text-sm text-zinc-900 outline-none transition focus:border-accent focus:ring-4 focus:ring-accent/10;
+}
+
+.helper {
+  @apply text-xs leading-relaxed text-zinc-500;
+}
+
+.button {
+  @apply inline-flex items-center justify-center gap-2 rounded-md bg-ink px-4 py-2.5 text-sm font-medium text-white transition hover:bg-zinc-800 active:translate-y-[1px] disabled:cursor-not-allowed disabled:opacity-60;
+}
+
+.button-secondary {
+  @apply inline-flex items-center justify-center gap-2 rounded-md border border-line bg-white px-4 py-2.5 text-sm font-medium text-zinc-800 transition hover:border-zinc-300 hover:bg-zinc-50 active:translate-y-[1px];
+}
+
+.panel {
+  @apply rounded-lg border border-line bg-white shadow-soft;
+}
