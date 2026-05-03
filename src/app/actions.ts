@@ -11,6 +11,7 @@ import {
   DEFAULT_REPLY_BODY,
   DEFAULT_REPLY_SUBJECT,
 } from "@/lib/templates";
+import { encryptSecret } from "@/lib/security/secrets";
 
 const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
 
@@ -204,12 +205,12 @@ export async function updateFormAction(formData: FormData) {
 
 export async function saveSmtpAction(formData: FormData) {
   const { supabase, user } = await requireUser();
+  const rawPassword = String(formData.get("smtp_password") ?? "");
   const parsed = z
     .object({
       smtp_host: z.string().min(1),
       smtp_port: z.coerce.number().int().positive(),
       smtp_user: z.string().min(1),
-      smtp_password: z.string().min(1),
       from_email: z.string().email(),
       from_name: z.string().min(1),
       secure: z.union([z.literal("on"), z.null()]).optional(),
@@ -218,7 +219,6 @@ export async function saveSmtpAction(formData: FormData) {
       smtp_host: formData.get("smtp_host"),
       smtp_port: formData.get("smtp_port"),
       smtp_user: formData.get("smtp_user"),
-      smtp_password: formData.get("smtp_password"),
       from_email: formData.get("from_email"),
       from_name: formData.get("from_name"),
       secure: formData.get("secure"),
@@ -228,12 +228,24 @@ export async function saveSmtpAction(formData: FormData) {
 
   const { data: existing } = await supabase
     .from("email_settings")
-    .select("id")
+    .select("id, smtp_password")
     .eq("user_id", user.id)
     .maybeSingle();
 
+  if (!rawPassword && !existing?.smtp_password) redirect("/dashboard/settings/smtp?error=invalid");
+
+  let smtpPassword = existing?.smtp_password ?? "";
+  if (rawPassword) {
+    try {
+      smtpPassword = encryptSecret(rawPassword);
+    } catch {
+      redirect("/dashboard/settings/smtp?error=crypto");
+    }
+  }
+
   const payload = {
     ...parsed.data,
+    smtp_password: smtpPassword,
     secure: parsed.data.secure === "on",
     user_id: user.id,
     updated_at: new Date().toISOString(),
@@ -253,6 +265,7 @@ export async function saveFormSmtpAction(formData: FormData) {
   const { supabase, user } = await requireUser();
   const formId = String(formData.get("form_id") ?? "");
   const useCustom = formData.get("use_custom_form_smtp") === "on";
+  const rawPassword = String(formData.get("form_smtp_password") ?? "");
 
   const { data: form } = await supabase
     .from("forms")
@@ -274,7 +287,6 @@ export async function saveFormSmtpAction(formData: FormData) {
       smtp_host: z.string().min(1),
       smtp_port: z.coerce.number().int().positive(),
       smtp_user: z.string().min(1),
-      smtp_password: z.string().min(1),
       from_email: z.string().email(),
       from_name: z.string().min(1),
       secure: z.union([z.literal("on"), z.null()]).optional(),
@@ -283,7 +295,6 @@ export async function saveFormSmtpAction(formData: FormData) {
       smtp_host: formData.get("form_smtp_host"),
       smtp_port: formData.get("form_smtp_port"),
       smtp_user: formData.get("form_smtp_user"),
-      smtp_password: formData.get("form_smtp_password"),
       from_email: formData.get("form_from_email"),
       from_name: formData.get("form_from_name"),
       secure: formData.get("form_secure"),
@@ -291,8 +302,26 @@ export async function saveFormSmtpAction(formData: FormData) {
 
   if (!parsed.success) redirect(`/dashboard/forms/${formId}?error=invalid`);
 
+  const { data: existing } = await supabase
+    .from("form_email_settings")
+    .select("smtp_password")
+    .eq("form_id", formId)
+    .maybeSingle();
+
+  if (!rawPassword && !existing?.smtp_password) redirect(`/dashboard/forms/${formId}?error=invalid`);
+
+  let smtpPassword = existing?.smtp_password ?? "";
+  if (rawPassword) {
+    try {
+      smtpPassword = encryptSecret(rawPassword);
+    } catch {
+      redirect(`/dashboard/forms/${formId}?error=crypto`);
+    }
+  }
+
   const payload = {
     ...parsed.data,
+    smtp_password: smtpPassword,
     form_id: formId,
     secure: parsed.data.secure === "on",
     updated_at: new Date().toISOString(),

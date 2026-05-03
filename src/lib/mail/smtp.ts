@@ -1,5 +1,6 @@
 import nodemailer from "nodemailer";
 import { toPlainText } from "@/lib/templates";
+import { decryptSecret } from "@/lib/security/secrets";
 
 export type SmtpSetting = {
   smtp_host: string;
@@ -42,13 +43,14 @@ export function getSystemSmtpSetting(): SmtpSetting | null {
 }
 
 export async function sendSmtpMail(setting: SmtpSetting, payload: MailPayload) {
+  const password = decryptSecret(setting.smtp_password);
   const transporter = nodemailer.createTransport({
     host: setting.smtp_host,
     port: setting.smtp_port,
     secure: setting.secure,
     auth: {
       user: setting.smtp_user,
-      pass: setting.smtp_password,
+      pass: password,
     },
   });
 

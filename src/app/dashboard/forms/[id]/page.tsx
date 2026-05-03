@@ -185,7 +185,8 @@ export default async function FormDetailPage({
             </label>
             <label className="field">
               <span className="label">SMTPパスワード</span>
-              <input className="input" name="form_smtp_password" type="password" defaultValue={formSmtp?.smtp_password ?? ""} />
+              <input className="input" name="form_smtp_password" type="password" placeholder={formSmtp ? "変更する場合のみ入力" : ""} />
+              {formSmtp ? <span className="helper">保存済みのパスワードは表示しません。空欄のまま保存すると現在のパスワードを維持します。</span> : null}
             </label>
             <label className="field">
               <span className="label">送信元メール</span>

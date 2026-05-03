@@ -37,7 +37,9 @@ export function Notice({ searchParams }: NoticeProps) {
                 ? "Stripeの環境変数が不足しています。"
                 : error === "stripe"
                   ? "Stripeとの通信または設定でエラーが発生しました。"
-                  : "処理に失敗しました。";
+                  : error === "crypto"
+                    ? "暗号化キーが未設定です。SMTP_ENCRYPTION_KEYを設定してください。"
+                    : "処理に失敗しました。";
 
   return <p className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{label}</p>;
 }

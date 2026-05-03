@@ -39,7 +39,8 @@ export default async function SmtpPage({
         </label>
         <label className="field">
           <span className="label">SMTPパスワード</span>
-          <input className="input" name="smtp_password" type="password" required defaultValue={setting?.smtp_password ?? ""} />
+          <input className="input" name="smtp_password" type="password" required={!setting} placeholder={setting ? "変更する場合のみ入力" : ""} />
+          {setting ? <span className="helper">保存済みのパスワードは表示しません。空欄のまま保存すると現在のパスワードを維持します。</span> : null}
         </label>
         <div className="grid gap-5 sm:grid-cols-2">
           <label className="field">
