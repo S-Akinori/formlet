@@ -3,6 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getSystemSmtpSetting, sendSmtpMail } from "@/lib/mail/smtp";
 import { checkRateLimit, getClientIp, hasHoneypot, originAllowed } from "@/lib/spam/checks";
 import { getMonthStart, isActiveSubscription, PLANS } from "@/lib/billing/plans";
+import { getStripeMode } from "@/lib/stripe/mode";
 import {
   DEFAULT_ADMIN_BODY,
   DEFAULT_ADMIN_SUBJECT,
@@ -113,6 +114,7 @@ async function checkSubmissionLimit(supabase: ReturnType<typeof createAdminClien
     .from("user_subscriptions")
     .select("plan, status")
     .eq("user_id", userId)
+    .eq("stripe_mode", getStripeMode())
     .maybeSingle();
 
   const plan = subscription?.plan === "pro" && isActiveSubscription(subscription.status) ? PLANS.pro : PLANS.free;

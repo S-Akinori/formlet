@@ -1,4 +1,5 @@
 import type { createClient } from "@/lib/supabase/server";
+import { getStripeMode } from "@/lib/stripe/mode";
 
 export type PlanId = "free" | "pro";
 
@@ -40,6 +41,7 @@ export async function getCurrentPlan(supabase: SupabaseClient, userId: string) {
     .from("user_subscriptions")
     .select("plan, status, current_period_end")
     .eq("user_id", userId)
+    .eq("stripe_mode", getStripeMode())
     .maybeSingle();
 
   if (data?.plan === "pro" && isActiveSubscription(data.status)) {

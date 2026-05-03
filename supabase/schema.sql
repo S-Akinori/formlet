@@ -14,15 +14,41 @@ create table if not exists public.forms (
 
 create table if not exists public.user_subscriptions (
   id uuid primary key default gen_random_uuid(),
-  user_id uuid not null references auth.users(id) on delete cascade unique,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  stripe_mode text not null default 'test' check (stripe_mode in ('test', 'live')),
   plan text not null default 'free' check (plan in ('free', 'pro')),
   status text not null default 'free',
-  stripe_customer_id text unique,
-  stripe_subscription_id text unique,
+  stripe_customer_id text,
+  stripe_subscription_id text,
   current_period_end timestamptz,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+alter table public.user_subscriptions add column if not exists stripe_mode text;
+update public.user_subscriptions set stripe_mode = 'test' where stripe_mode is null;
+alter table public.user_subscriptions alter column stripe_mode set default 'test';
+alter table public.user_subscriptions alter column stripe_mode set not null;
+
+alter table public.user_subscriptions
+drop constraint if exists user_subscriptions_stripe_mode_check;
+
+alter table public.user_subscriptions
+add constraint user_subscriptions_stripe_mode_check
+check (stripe_mode in ('test', 'live'));
+
+alter table public.user_subscriptions
+drop constraint if exists user_subscriptions_user_id_key;
+
+alter table public.user_subscriptions
+drop constraint if exists user_subscriptions_stripe_customer_id_key;
+
+alter table public.user_subscriptions
+drop constraint if exists user_subscriptions_stripe_subscription_id_key;
+
+drop index if exists public.user_subscriptions_user_mode_key;
+drop index if exists public.user_subscriptions_customer_mode_key;
+drop index if exists public.user_subscriptions_subscription_mode_key;
 
 create table if not exists public.submissions (
   id uuid primary key default gen_random_uuid(),
@@ -109,6 +135,14 @@ create index if not exists forms_user_id_idx on public.forms(user_id);
 create index if not exists forms_endpoint_key_idx on public.forms(endpoint_key);
 create index if not exists user_subscriptions_user_id_idx on public.user_subscriptions(user_id);
 create index if not exists user_subscriptions_stripe_customer_id_idx on public.user_subscriptions(stripe_customer_id);
+create unique index if not exists user_subscriptions_user_mode_key
+on public.user_subscriptions(user_id, stripe_mode);
+create unique index if not exists user_subscriptions_customer_mode_key
+on public.user_subscriptions(stripe_mode, stripe_customer_id)
+where stripe_customer_id is not null;
+create unique index if not exists user_subscriptions_subscription_mode_key
+on public.user_subscriptions(stripe_mode, stripe_subscription_id)
+where stripe_subscription_id is not null;
 create index if not exists submissions_form_id_created_at_idx on public.submissions(form_id, created_at desc);
 create index if not exists form_email_settings_form_id_idx on public.form_email_settings(form_id);
 create index if not exists form_fields_form_id_sort_order_idx on public.form_fields(form_id, sort_order);

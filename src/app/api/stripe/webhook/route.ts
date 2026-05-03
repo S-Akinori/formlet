@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import type Stripe from "stripe";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getStripe } from "@/lib/stripe/server";
+import { getStripeMode } from "@/lib/stripe/mode";
 
 export async function POST(request: Request) {
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
@@ -43,13 +44,21 @@ async function syncCheckoutSession(session: Stripe.Checkout.Session) {
   if (!session.subscription) return;
 
   const subscription = await getStripe().subscriptions.retrieve(String(session.subscription));
-  await syncSubscription(subscription, session.metadata?.user_id ?? undefined);
+  await syncSubscription(
+    subscription,
+    session.metadata?.user_id ?? undefined,
+    session.metadata?.stripe_mode === "live" ? "live" : session.metadata?.stripe_mode === "test" ? "test" : undefined,
+  );
 }
 
-async function syncSubscription(subscription: Stripe.Subscription, fallbackUserId?: string) {
+async function syncSubscription(subscription: Stripe.Subscription, fallbackUserId?: string, fallbackStripeMode?: "test" | "live") {
   const admin = createAdminClient();
   const customerId = String(subscription.customer);
   const userId = subscription.metadata.user_id ?? fallbackUserId;
+  const stripeMode =
+    subscription.metadata.stripe_mode === "live" || subscription.metadata.stripe_mode === "test"
+      ? subscription.metadata.stripe_mode
+      : fallbackStripeMode ?? getStripeMode();
   const isPro = subscription.status === "active" || subscription.status === "trialing";
   const currentPeriodEnd = subscription.items.data[0]?.current_period_end
     ? new Date(subscription.items.data[0].current_period_end * 1000).toISOString()
@@ -59,6 +68,7 @@ async function syncSubscription(subscription: Stripe.Subscription, fallbackUserI
     await admin.from("user_subscriptions").upsert(
       {
         user_id: userId,
+        stripe_mode: stripeMode,
         plan: isPro ? "pro" : "free",
         status: subscription.status,
         stripe_customer_id: customerId,
@@ -66,7 +76,7 @@ async function syncSubscription(subscription: Stripe.Subscription, fallbackUserI
         current_period_end: currentPeriodEnd,
         updated_at: new Date().toISOString(),
       },
-      { onConflict: "user_id" },
+      { onConflict: "user_id,stripe_mode" },
     );
     return;
   }
@@ -80,5 +90,6 @@ async function syncSubscription(subscription: Stripe.Subscription, fallbackUserI
       current_period_end: currentPeriodEnd,
       updated_at: new Date().toISOString(),
     })
-    .eq("stripe_customer_id", customerId);
+    .eq("stripe_customer_id", customerId)
+    .eq("stripe_mode", stripeMode);
 }

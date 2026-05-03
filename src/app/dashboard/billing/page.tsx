@@ -1,6 +1,7 @@
 import { CheckCircle, CreditCard, Crown, Gauge } from "@phosphor-icons/react/dist/ssr";
 import { requireUser } from "@/lib/auth";
 import { getCurrentPlan, getMonthStart } from "@/lib/billing/plans";
+import { getStripeMode } from "@/lib/stripe/mode";
 import { Notice } from "@/components/Notice";
 
 export default async function BillingPage({
@@ -11,6 +12,7 @@ export default async function BillingPage({
   const query = await searchParams;
   const { supabase, user } = await requireUser();
   const plan = await getCurrentPlan(supabase, user.id);
+  const stripeMode = getStripeMode();
   const [{ count: formCount }, { data: forms }, { data: subscription }] = await Promise.all([
     supabase.from("forms").select("id", { count: "exact", head: true }).eq("user_id", user.id),
     supabase.from("forms").select("id").eq("user_id", user.id),
@@ -18,6 +20,7 @@ export default async function BillingPage({
       .from("user_subscriptions")
       .select("status, current_period_end, stripe_customer_id")
       .eq("user_id", user.id)
+      .eq("stripe_mode", stripeMode)
       .maybeSingle(),
   ]);
 
@@ -36,7 +39,7 @@ export default async function BillingPage({
         <p className="font-mono text-xs uppercase tracking-[0.22em] text-accent">Billing</p>
         <h1 className="mt-2 text-3xl font-semibold tracking-tight text-zinc-950">プランと支払い</h1>
         <p className="mt-2 text-sm leading-6 text-zinc-600">
-          Freeは2フォーム、Proは月額880円税込で30フォーム・3,000件/月・保存期間無制限です。
+          Freeは2フォーム、Proは月額880円税込で30フォーム・3,000件/月・保存期間無制限です。現在のStripe環境: {stripeMode}
         </p>
       </div>
 

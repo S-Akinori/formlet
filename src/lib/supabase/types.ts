@@ -43,6 +43,7 @@ export type Database = {
         Row: {
           id: string;
           user_id: string;
+          stripe_mode: "test" | "live";
           plan: "free" | "pro";
           status: string;
           stripe_customer_id: string | null;
@@ -54,6 +55,7 @@ export type Database = {
         Insert: {
           id?: string;
           user_id: string;
+          stripe_mode?: "test" | "live";
           plan?: "free" | "pro";
           status?: string;
           stripe_customer_id?: string | null;
@@ -65,6 +67,7 @@ export type Database = {
         Update: {
           id?: string;
           user_id?: string;
+          stripe_mode?: "test" | "live";
           plan?: "free" | "pro";
           status?: string;
           stripe_customer_id?: string | null;
