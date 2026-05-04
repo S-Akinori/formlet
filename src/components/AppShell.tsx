@@ -12,10 +12,10 @@ import { createClient } from "@/lib/supabase/server";
 import { signOutAction } from "@/app/actions";
 
 const nav = [
-  { href: "/dashboard", label: "Dashboard", icon: House },
-  { href: "/dashboard/forms", label: "Forms", icon: SquaresFour },
-  { href: "/dashboard/billing", label: "Billing", icon: CreditCard },
-  { href: "/dashboard/settings/smtp", label: "SMTP", icon: GearSix },
+  { href: "/dashboard", label: "ダッシュボード", icon: House },
+  { href: "/dashboard/forms", label: "フォーム一覧", icon: SquaresFour },
+  { href: "/dashboard/billing", label: "請求", icon: CreditCard },
+  { href: "/dashboard/settings/smtp", label: "SMTP設定", icon: GearSix },
 ];
 
 export async function AppShell({ children }: { children: React.ReactNode }) {

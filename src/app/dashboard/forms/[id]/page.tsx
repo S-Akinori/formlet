@@ -15,6 +15,7 @@ import { Notice } from "@/components/Notice";
 import { SubmitButton } from "@/components/SubmitButton";
 import { FormSubmissionTester } from "@/components/FormSubmissionTester";
 import { FormFieldsEditor } from "@/components/FormFieldsEditor";
+import { FormDetailTabs } from "@/components/FormDetailTabs";
 import { notFound } from "next/navigation";
 import type { Json } from "@/lib/supabase/types";
 
@@ -49,7 +50,7 @@ export default async function FormDetailPage({
   const sampleHtml = buildSampleHtml(endpoint, fields);
 
   return (
-    <div className="grid gap-6">
+    <div className="grid max-w-5xl gap-6">
       <div>
         <div>
           <p className="font-mono text-xs uppercase tracking-[0.22em] text-accent">Form</p>
@@ -58,158 +59,182 @@ export default async function FormDetailPage({
       </div>
       <Notice searchParams={query} />
 
-      <section className="grid gap-3 rounded-lg border border-line bg-white px-4 py-4 shadow-soft md:grid-cols-[1fr_auto_auto] md:items-center">
+      <section className="grid gap-4 rounded-lg border border-line bg-white px-4 py-4 shadow-soft">
         <div className="min-w-0">
           <p className="text-xs font-medium uppercase tracking-[0.16em] text-zinc-500">Endpoint</p>
           <code className="mt-2 block truncate rounded-md bg-paper px-3 py-2 font-mono text-xs text-zinc-800">{endpoint}</code>
         </div>
-        <div className="flex items-center gap-2 rounded-md bg-paper px-3 py-2 text-sm font-medium text-zinc-800">
-          {form.is_active ? (
-            <CheckCircle className="h-4 w-4 text-accent" weight="bold" />
-          ) : (
-            <XCircle className="h-4 w-4 text-zinc-500" weight="bold" />
-          )}
-          {statusLabel}
-        </div>
-        <Link className="button-secondary" href={`/dashboard/forms/${id}/templates`}>
-          <EnvelopeSimple className="h-4 w-4" weight="bold" />
-          テンプレート
-        </Link>
-      </section>
-
-      <section className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
-        <form action={updateFormAction} className="panel overflow-hidden">
-          <SectionHeader
-            icon={<GearSix className="h-5 w-5 text-accent" weight="bold" />}
-            title="基本設定"
-            body="フォーム名、通知先、送信後の遷移、受け付け元を管理します。"
-          />
-          <div className="grid gap-5 p-6">
-            <input name="id" type="hidden" value={form.id} />
-            <label className="field">
-              <span className="label">フォーム名</span>
-              <input className="input" name="name" required defaultValue={form.name} />
-            </label>
-            <div className="grid gap-5 lg:grid-cols-2">
-              <label className="field">
-                <span className="label">管理者通知メール</span>
-                <input className="input" name="admin_email" type="email" required defaultValue={form.admin_email} />
-              </label>
-              <label className="field">
-                <span className="label">リダイレクトURL</span>
-                <input className="input" name="redirect_url" type="url" defaultValue={form.redirect_url ?? ""} />
-                <span className="helper">空欄の場合はJSONレスポンスを返します。</span>
-              </label>
-            </div>
-            <label className="field">
-              <span className="label">許可Origin / Referer</span>
-              <textarea className="input min-h-28" name="allowed_origins" defaultValue={(form.allowed_origins ?? []).join("\n")} />
-              <span className="helper">1行に1つ入力します。空欄の場合は制限しません。</span>
-            </label>
-            <div className="flex flex-col justify-between gap-4 border-t border-line pt-5 sm:flex-row sm:items-center">
-              <label className="flex items-center gap-3 text-sm font-medium text-zinc-800">
-                <input className="h-4 w-4 rounded border-line text-accent" name="is_active" type="checkbox" defaultChecked={form.is_active} />
-                有効にする
-              </label>
-              <SubmitButton>基本設定を保存</SubmitButton>
-            </div>
-          </div>
-        </form>
-
-        <aside className="grid gap-6 xl:self-start">
-          <div className="panel overflow-hidden">
-            <SectionHeader
-              icon={<Code className="h-5 w-5 text-accent" weight="bold" />}
-              title="設置コード"
-              body="静的サイトのform actionに指定します。"
-            />
-            <div className="grid gap-4 p-5">
-              <code className="block overflow-x-auto rounded-md bg-zinc-950 p-4 font-mono text-xs text-zinc-100">{endpoint}</code>
-              <pre className="overflow-x-auto rounded-md border border-line bg-paper p-4 text-xs leading-6 text-zinc-700">{sampleHtml}</pre>
-            </div>
-          </div>
-
-          <FormSubmissionTester endpoint={endpoint} fields={fields} />
-
-          <div className="panel overflow-hidden">
-            <div className="flex items-center justify-between border-b border-line px-5 py-4">
-              <div className="flex items-center gap-3">
-                <PaperPlaneTilt className="h-5 w-5 text-accent" weight="bold" />
-                <h2 className="text-sm font-semibold text-zinc-950">最近の問い合わせ</h2>
-              </div>
-              <Link className="text-sm font-medium text-accent hover:underline" href={`/dashboard/forms/${id}/submissions`}>
-                すべて見る
-              </Link>
-            </div>
-            {submissions?.length ? (
-              <div className="divide-y divide-line">
-                {submissions.map((submission) => (
-                  <Link key={submission.id} href={`/dashboard/forms/${id}/submissions/${submission.id}`} className="grid gap-1 px-5 py-4 transition hover:bg-paper">
-                    <span className="truncate text-sm font-medium text-zinc-950">{submission.sender_name || submission.sender_email || "Unknown sender"}</span>
-                    <span className="text-xs text-zinc-500">{new Date(submission.created_at).toLocaleString("ja-JP")}</span>
-                  </Link>
-                ))}
-              </div>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex w-fit items-center gap-2 rounded-md bg-paper px-3 py-2 text-sm font-medium text-zinc-800">
+            {form.is_active ? (
+              <CheckCircle className="h-4 w-4 text-accent" weight="bold" />
             ) : (
-              <p className="px-5 py-10 text-sm text-zinc-500">まだ問い合わせはありません。</p>
+              <XCircle className="h-4 w-4 text-zinc-500" weight="bold" />
             )}
+            {statusLabel}
           </div>
-        </aside>
+          <Link className="button-secondary w-fit" href={`/dashboard/forms/${id}/templates`}>
+            <EnvelopeSimple className="h-4 w-4" weight="bold" />
+            テンプレート
+          </Link>
+        </div>
       </section>
 
-      <FormFieldsEditor formId={form.id} fields={fields} />
+      <FormDetailTabs
+        settings={
+          <form action={updateFormAction} className="panel overflow-hidden">
+            <SectionHeader
+              icon={<GearSix className="h-5 w-5 text-accent" weight="bold" />}
+              title="基本設定"
+              body="フォーム名、通知先、送信後の遷移、受け付け元を管理します。"
+            />
+            <div className="grid gap-5 p-6">
+              <input name="id" type="hidden" value={form.id} />
+              <label className="field">
+                <span className="label">フォーム名</span>
+                <input className="input" name="name" required defaultValue={form.name} />
+              </label>
+              <div className="grid gap-5 lg:grid-cols-2">
+                <label className="field">
+                  <span className="label">管理者通知メール</span>
+                  <input className="input" name="admin_email" type="email" required defaultValue={form.admin_email} />
+                </label>
+                <label className="field">
+                  <span className="label">リダイレクトURL</span>
+                  <input className="input" name="redirect_url" type="url" defaultValue={form.redirect_url ?? ""} />
+                  <span className="helper">空欄の場合はJSONレスポンスを返します。</span>
+                </label>
+              </div>
+              <label className="field">
+                <span className="label">許可Origin / Referer</span>
+                <textarea className="input min-h-28" name="allowed_origins" defaultValue={(form.allowed_origins ?? []).join("\n")} />
+                <span className="helper">1行に1つ入力します。空欄の場合は制限しません。</span>
+              </label>
+              <div className="flex flex-col justify-between gap-4 border-t border-line pt-5 sm:flex-row sm:items-center">
+                <label className="flex items-center gap-3 text-sm font-medium text-zinc-800">
+                  <input className="h-4 w-4 rounded border-line text-accent" name="is_active" type="checkbox" defaultChecked={form.is_active} />
+                  有効にする
+                </label>
+                <SubmitButton>基本設定を保存</SubmitButton>
+              </div>
+            </div>
+          </form>
+        }
+        fields={
+          <div className="grid gap-6">
+            <FormFieldsEditor formId={form.id} fields={fields} />
+            <FormSubmissionTester endpoint={endpoint} fields={fields} />
+          </div>
+        }
+        mail={
+          <div className="grid gap-6">
+            <div className="panel overflow-hidden">
+              <SectionHeader
+                icon={<EnvelopeSimple className="h-5 w-5 text-accent" weight="bold" />}
+                title="メールテンプレート"
+                body="管理者通知と自動返信の件名・本文を編集します。"
+              />
+              <div className="flex flex-col gap-3 p-6 sm:flex-row sm:items-center sm:justify-between">
+                <p className="text-sm leading-6 text-zinc-600">フォーム項目の変数を使って、問い合わせ内容に合わせたメールを作成できます。</p>
+                <Link className="button-secondary w-fit" href={`/dashboard/forms/${id}/templates`}>
+                  <EnvelopeSimple className="h-4 w-4" weight="bold" />
+                  テンプレートを編集
+                </Link>
+              </div>
+            </div>
+            <form action={saveFormSmtpAction} className="panel overflow-hidden">
+              <SectionHeader
+                icon={<PlugsConnected className="h-5 w-5 text-accent" weight="bold" />}
+                title="フォーム個別SMTP"
+                body="このフォームの管理者通知と自動返信に専用SMTPを使います。未設定ならユーザー毎共通、さらに未設定ならシステム共通SMTPを使います。"
+              />
+              <div className="grid gap-6 p-6">
+                <input name="form_id" type="hidden" value={form.id} />
+                <div className="flex flex-col justify-between gap-4 rounded-md border border-line bg-paper px-4 py-3 sm:flex-row sm:items-center">
+                  <label className="flex items-center gap-3 text-sm font-medium text-zinc-800">
+                    <input className="h-4 w-4 rounded border-line text-accent" name="use_custom_form_smtp" type="checkbox" defaultChecked={Boolean(formSmtp)} />
+                    このフォーム専用のSMTPを使う
+                  </label>
+                  <span className="text-xs text-zinc-500">{formSmtp ? "フォーム個別設定を使用中" : "フォールバック設定を使用中"}</span>
+                </div>
+                <div className="grid gap-5 lg:grid-cols-[1fr_140px_1fr]">
+                  <label className="field lg:col-span-2">
+                    <span className="label">SMTPホスト</span>
+                    <input className="input" name="form_smtp_host" defaultValue={formSmtp?.smtp_host ?? ""} placeholder="sv0000.xserver.jp" />
+                  </label>
+                  <label className="field">
+                    <span className="label">ポート</span>
+                    <input className="input" name="form_smtp_port" type="number" defaultValue={formSmtp?.smtp_port ?? 465} />
+                  </label>
+                  <label className="field">
+                    <span className="label">SMTPユーザー名</span>
+                    <input className="input" name="form_smtp_user" defaultValue={formSmtp?.smtp_user ?? ""} />
+                  </label>
+                  <label className="field">
+                    <span className="label">SMTPパスワード</span>
+                    <input className="input" name="form_smtp_password" type="password" placeholder={formSmtp ? "変更する場合のみ入力" : ""} />
+                    {formSmtp ? <span className="helper">保存済みのパスワードは表示しません。空欄のまま保存すると現在のパスワードを維持します。</span> : null}
+                  </label>
+                  <label className="field">
+                    <span className="label">送信元メール</span>
+                    <input className="input" name="form_from_email" type="email" defaultValue={formSmtp?.from_email ?? ""} />
+                  </label>
+                  <label className="field">
+                    <span className="label">送信者名</span>
+                    <input className="input" name="form_from_name" defaultValue={formSmtp?.from_name ?? form.name} />
+                  </label>
+                </div>
+                <div className="flex flex-col justify-between gap-4 border-t border-line pt-5 sm:flex-row sm:items-center">
+                  <label className="flex items-center gap-3 text-sm font-medium text-zinc-800">
+                    <input className="h-4 w-4 rounded border-line text-accent" name="form_secure" type="checkbox" defaultChecked={formSmtp?.secure ?? true} />
+                    SSL/TLSを使う
+                  </label>
+                  <SubmitButton>フォーム個別SMTPを保存</SubmitButton>
+                </div>
+              </div>
+            </form>
+          </div>
+        }
+        install={
+          <div className="grid gap-6">
+            <div className="panel overflow-hidden">
+              <SectionHeader
+                icon={<Code className="h-5 w-5 text-accent" weight="bold" />}
+                title="設置コード"
+                body="静的サイトのform actionに指定します。"
+              />
+              <div className="grid gap-4 p-5">
+                <code className="block overflow-x-auto rounded-md bg-zinc-950 p-4 font-mono text-xs text-zinc-100">{endpoint}</code>
+                <pre className="overflow-x-auto rounded-md border border-line bg-paper p-4 text-xs leading-6 text-zinc-700">{sampleHtml}</pre>
+              </div>
+            </div>
 
-      <form action={saveFormSmtpAction} className="panel overflow-hidden">
-        <SectionHeader
-          icon={<PlugsConnected className="h-5 w-5 text-accent" weight="bold" />}
-          title="フォーム個別SMTP"
-          body="このフォームの管理者通知と自動返信に専用SMTPを使います。未設定ならユーザー毎共通、さらに未設定ならシステム共通SMTPを使います。"
-        />
-        <div className="grid gap-6 p-6">
-          <input name="form_id" type="hidden" value={form.id} />
-          <div className="flex flex-col justify-between gap-4 rounded-md border border-line bg-paper px-4 py-3 sm:flex-row sm:items-center">
-            <label className="flex items-center gap-3 text-sm font-medium text-zinc-800">
-              <input className="h-4 w-4 rounded border-line text-accent" name="use_custom_form_smtp" type="checkbox" defaultChecked={Boolean(formSmtp)} />
-              このフォーム専用のSMTPを使う
-            </label>
-            <span className="text-xs text-zinc-500">{formSmtp ? "フォーム個別設定を使用中" : "フォールバック設定を使用中"}</span>
+            <div className="panel overflow-hidden">
+              <div className="flex items-center justify-between border-b border-line px-5 py-4">
+                <div className="flex items-center gap-3">
+                  <PaperPlaneTilt className="h-5 w-5 text-accent" weight="bold" />
+                  <h2 className="text-sm font-semibold text-zinc-950">最近の問い合わせ</h2>
+                </div>
+                <Link className="text-sm font-medium text-accent hover:underline" href={`/dashboard/forms/${id}/submissions`}>
+                  すべて見る
+                </Link>
+              </div>
+              {submissions?.length ? (
+                <div className="divide-y divide-line">
+                  {submissions.map((submission) => (
+                    <Link key={submission.id} href={`/dashboard/forms/${id}/submissions/${submission.id}`} className="grid gap-1 px-5 py-4 transition hover:bg-paper">
+                      <span className="truncate text-sm font-medium text-zinc-950">{submission.sender_name || submission.sender_email || "Unknown sender"}</span>
+                      <span className="text-xs text-zinc-500">{new Date(submission.created_at).toLocaleString("ja-JP")}</span>
+                    </Link>
+                  ))}
+                </div>
+              ) : (
+                <p className="px-5 py-10 text-sm text-zinc-500">まだ問い合わせはありません。</p>
+              )}
+            </div>
           </div>
-          <div className="grid gap-5 lg:grid-cols-[1fr_140px_1fr]">
-            <label className="field lg:col-span-2">
-              <span className="label">SMTPホスト</span>
-              <input className="input" name="form_smtp_host" defaultValue={formSmtp?.smtp_host ?? ""} placeholder="sv0000.xserver.jp" />
-            </label>
-            <label className="field">
-              <span className="label">ポート</span>
-              <input className="input" name="form_smtp_port" type="number" defaultValue={formSmtp?.smtp_port ?? 465} />
-            </label>
-            <label className="field">
-              <span className="label">SMTPユーザー名</span>
-              <input className="input" name="form_smtp_user" defaultValue={formSmtp?.smtp_user ?? ""} />
-            </label>
-            <label className="field">
-              <span className="label">SMTPパスワード</span>
-              <input className="input" name="form_smtp_password" type="password" placeholder={formSmtp ? "変更する場合のみ入力" : ""} />
-              {formSmtp ? <span className="helper">保存済みのパスワードは表示しません。空欄のまま保存すると現在のパスワードを維持します。</span> : null}
-            </label>
-            <label className="field">
-              <span className="label">送信元メール</span>
-              <input className="input" name="form_from_email" type="email" defaultValue={formSmtp?.from_email ?? ""} />
-            </label>
-            <label className="field">
-              <span className="label">送信者名</span>
-              <input className="input" name="form_from_name" defaultValue={formSmtp?.from_name ?? form.name} />
-            </label>
-          </div>
-          <div className="flex flex-col justify-between gap-4 border-t border-line pt-5 sm:flex-row sm:items-center">
-            <label className="flex items-center gap-3 text-sm font-medium text-zinc-800">
-              <input className="h-4 w-4 rounded border-line text-accent" name="form_secure" type="checkbox" defaultChecked={formSmtp?.secure ?? true} />
-              SSL/TLSを使う
-            </label>
-            <SubmitButton>フォーム個別SMTPを保存</SubmitButton>
-          </div>
-        </div>
-      </form>
+        }
+      />
 
       <section className="grid gap-4 rounded-lg border border-line bg-white p-5 shadow-soft md:grid-cols-3">
         <InfoBlock icon={<GlobeHemisphereWest className="h-5 w-5 text-accent" weight="bold" />} title="受付元制限" value={(form.allowed_origins ?? []).length ? `${form.allowed_origins?.length}件` : "制限なし"} />

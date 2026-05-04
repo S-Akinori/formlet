@@ -33,11 +33,8 @@ export default async function TemplatesPage({
   const admin = templates?.find((item) => item.type === "admin");
   const reply = templates?.find((item) => item.type === "reply");
   const variables = [
-    { key: "name", label: "送信者名", group: "system" as const },
-    { key: "email", label: "送信者メール", group: "system" as const },
-    { key: "message", label: "本文", group: "system" as const },
-    { key: "created_at", label: "送信日時", group: "system" as const },
     { key: "form_name", label: "フォーム名", group: "system" as const },
+    { key: "created_at", label: "送信日時", group: "system" as const },
     ...(fields ?? []).map((field) => ({
       key: field.field_name,
       label: field.label,
