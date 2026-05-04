@@ -38,7 +38,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ key
   const dashboardTest = request.headers.get("x-formlet-dashboard-test") === "1";
 
   if (hasHoneypot(entries)) {
-    return redirectOrJson(form.redirect_url, { ok: true }, dashboardTest);
+    return redirectOrJson(request, form.redirect_url, { ok: true }, dashboardTest);
   }
 
   if (!originAllowed(form, request)) {
@@ -115,7 +115,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ key
     createdAt,
   });
 
-  return redirectOrJson(form.redirect_url, { ok: true }, dashboardTest);
+  return redirectOrJson(request, form.redirect_url, { ok: true }, dashboardTest);
 }
 
 async function checkSubmissionLimit(supabase: ReturnType<typeof createAdminClient>, userId: string) {
@@ -324,12 +324,21 @@ function matchesPattern(value: string, pattern: string) {
   }
 }
 
-function redirectOrJson(redirectUrl: string | null, payload: Record<string, boolean>, forceJson = false) {
-  if (redirectUrl && !forceJson) {
-    return NextResponse.redirect(redirectUrl, { status: 303 });
+function redirectOrJson(request: Request, redirectUrl: string | null, payload: Record<string, boolean>, forceJson = false) {
+  const fallbackUrl = new URL("/thanks", request.url).toString();
+  const nextUrl = redirectUrl || fallbackUrl;
+
+  if (forceJson || wantsJsonResponse(request)) {
+    return NextResponse.json({ ...payload, redirected_to: redirectUrl });
   }
 
-  return NextResponse.json({ ...payload, redirected_to: redirectUrl });
+  return NextResponse.redirect(nextUrl, { status: 303 });
+}
+
+function wantsJsonResponse(request: Request) {
+  const accept = request.headers.get("accept") ?? "";
+  const requestedWith = request.headers.get("x-requested-with") ?? "";
+  return accept.includes("application/json") || requestedWith.toLowerCase() === "xmlhttprequest";
 }
 
 async function sendSubmissionMails({

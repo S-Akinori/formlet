@@ -28,7 +28,7 @@ export default async function NewFormPage({
         <label className="field">
           <span className="label">リダイレクトURL</span>
           <input className="input" name="redirect_url" type="url" placeholder="https://example.com/thanks" />
-          <span className="helper">未入力の場合はJSONで送信結果を返します。</span>
+          <span className="helper">未入力の場合はFormlet標準の送信完了ページへ遷移します。</span>
         </label>
         <label className="field">
           <span className="label">許可Origin / Referer</span>

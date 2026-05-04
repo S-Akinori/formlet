@@ -102,7 +102,7 @@ export default async function FormDetailPage({
                 <label className="field">
                   <span className="label">リダイレクトURL</span>
                   <input className="input" name="redirect_url" type="url" defaultValue={form.redirect_url ?? ""} />
-                  <span className="helper">空欄の場合はJSONレスポンスを返します。</span>
+                  <span className="helper">空欄の場合はFormlet標準の送信完了ページへ遷移します。Ajax送信ではJSONレスポンスを返せます。</span>
                 </label>
               </div>
               <label className="field">
