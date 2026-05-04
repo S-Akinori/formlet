@@ -12,6 +12,7 @@ export type Database = {
           admin_email: string;
           redirect_url: string | null;
           allowed_origins: string[] | null;
+          embed_theme: "simple" | "shop" | "compact";
           is_active: boolean;
           created_at: string;
         };
@@ -23,6 +24,7 @@ export type Database = {
           admin_email: string;
           redirect_url?: string | null;
           allowed_origins?: string[] | null;
+          embed_theme?: "simple" | "shop" | "compact";
           is_active?: boolean;
           created_at?: string;
         };
@@ -34,6 +36,7 @@ export type Database = {
           admin_email?: string;
           redirect_url?: string | null;
           allowed_origins?: string[] | null;
+          embed_theme?: "simple" | "shop" | "compact";
           is_active?: boolean;
           created_at?: string;
         };

@@ -42,12 +42,14 @@ export default async function FormDetailPage({
   if (!form) notFound();
 
   const endpoint = `${process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"}/api/f/${form.endpoint_key}`;
+  const embedUrl = `${process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"}/embed/${form.endpoint_key}`;
   const statusLabel = form.is_active ? "有効" : "無効";
   const fields = (formFields ?? []).map((field) => ({
     ...field,
     options: normalizeOptions(field.options),
   }));
   const sampleHtml = buildSampleHtml(endpoint, fields);
+  const iframeHtml = buildIframeHtml(embedUrl, form.name);
 
   return (
     <div className="grid max-w-5xl gap-6">
@@ -105,6 +107,15 @@ export default async function FormDetailPage({
                   <span className="helper">空欄の場合はFormlet標準の送信完了ページへ遷移します。Ajax送信ではJSONレスポンスを返せます。</span>
                 </label>
               </div>
+              <label className="field">
+                <span className="label">埋め込みフォームのデザイン</span>
+                <select className="input" name="embed_theme" defaultValue={form.embed_theme ?? "simple"}>
+                  <option value="simple">シンプル</option>
+                  <option value="shop">店舗向け</option>
+                  <option value="compact">LP向けコンパクト</option>
+                </select>
+                <span className="helper">iframeで埋め込むフォームの見た目を選択します。</span>
+              </label>
               <label className="field">
                 <span className="label">許可Origin / Referer</span>
                 <textarea className="input min-h-28" name="allowed_origins" defaultValue={(form.allowed_origins ?? []).join("\n")} />
@@ -201,11 +212,25 @@ export default async function FormDetailPage({
               <SectionHeader
                 icon={<Code className="h-5 w-5 text-accent" weight="bold" />}
                 title="設置コード"
-                body="静的サイトのform actionに指定します。"
+                body="一般ユーザー向けのiframe埋め込みと、開発者向けのform actionを利用できます。"
               />
-              <div className="grid gap-4 p-5">
-                <code className="block overflow-x-auto rounded-md bg-zinc-950 p-4 font-mono text-xs text-zinc-100">{endpoint}</code>
-                <pre className="overflow-x-auto rounded-md border border-line bg-paper p-4 text-xs leading-6 text-zinc-700">{sampleHtml}</pre>
+              <div className="grid gap-5 p-5">
+                <div className="grid gap-3">
+                  <div>
+                    <h3 className="text-sm font-semibold text-zinc-950">iframe埋め込み</h3>
+                    <p className="mt-1 text-sm leading-6 text-zinc-600">項目を追加してもFormlet側のデザインで統一され、送信完了もiframe内で完結します。</p>
+                  </div>
+                  <code className="block overflow-x-auto rounded-md bg-zinc-950 p-4 font-mono text-xs text-zinc-100">{embedUrl}</code>
+                  <pre className="overflow-x-auto rounded-md border border-line bg-paper p-4 text-xs leading-6 text-zinc-700">{iframeHtml}</pre>
+                </div>
+                <div className="grid gap-3 border-t border-line pt-5">
+                  <div>
+                    <h3 className="text-sm font-semibold text-zinc-950">form action</h3>
+                    <p className="mt-1 text-sm leading-6 text-zinc-600">既存フォームのHTMLを自分で管理したい開発者向けです。</p>
+                  </div>
+                  <code className="block overflow-x-auto rounded-md bg-zinc-950 p-4 font-mono text-xs text-zinc-100">{endpoint}</code>
+                  <pre className="overflow-x-auto rounded-md border border-line bg-paper p-4 text-xs leading-6 text-zinc-700">{sampleHtml}</pre>
+                </div>
               </div>
             </div>
 
@@ -301,9 +326,17 @@ ${(field.options ?? [])
 
   return `<form action="${endpoint}" method="POST"${hasFile ? ' enctype="multipart/form-data"' : ""}>
 ${htmlFields}
-  <input name="company" hidden>
+  <input name="_formlet_hp" hidden>
   <button type="submit">Send</button>
 </form>`;
+}
+
+function buildIframeHtml(embedUrl: string, title: string) {
+  return `<iframe
+  src="${embedUrl}"
+  title="${escapeAttribute(title)}"
+  style="width:100%;height:680px;border:0;border-radius:8px;overflow:hidden;"
+></iframe>`;
 }
 
 function normalizeOptions(value: Json | undefined) {

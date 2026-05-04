@@ -20,6 +20,8 @@ const authSchema = z.object({
   password: z.string().min(8),
 });
 
+const embedThemeSchema = z.union([z.literal("simple"), z.literal("shop"), z.literal("compact")]);
+
 export async function signInAction(formData: FormData) {
   const { supabase } = await requireAnonymousClient();
   const parsed = authSchema.safeParse(Object.fromEntries(formData));
@@ -102,6 +104,7 @@ export async function createFormAction(formData: FormData) {
       admin_email: z.string().email(),
       redirect_url: z.string().url().optional().or(z.literal("")),
       allowed_origins: z.string().optional(),
+      embed_theme: embedThemeSchema.optional(),
       is_active: z.union([z.literal("on"), z.null()]).optional(),
     })
     .safeParse({
@@ -109,6 +112,7 @@ export async function createFormAction(formData: FormData) {
       admin_email: formData.get("admin_email"),
       redirect_url: formData.get("redirect_url"),
       allowed_origins: formData.get("allowed_origins"),
+      embed_theme: formData.get("embed_theme"),
       is_active: formData.get("is_active"),
     });
 
@@ -129,6 +133,7 @@ export async function createFormAction(formData: FormData) {
       admin_email: parsed.data.admin_email,
       redirect_url: parsed.data.redirect_url || null,
       allowed_origins: allowedOrigins?.length ? allowedOrigins : null,
+      embed_theme: parsed.data.embed_theme ?? "simple",
       is_active: parsed.data.is_active === "on",
     })
     .select("id")
@@ -174,12 +179,14 @@ export async function updateFormAction(formData: FormData) {
       name: z.string().min(1),
       admin_email: z.string().email(),
       redirect_url: z.string().url().optional().or(z.literal("")),
+      embed_theme: embedThemeSchema.optional(),
       is_active: z.union([z.literal("on"), z.null()]).optional(),
     })
     .safeParse({
       name: formData.get("name"),
       admin_email: formData.get("admin_email"),
       redirect_url: formData.get("redirect_url"),
+      embed_theme: formData.get("embed_theme"),
       is_active: formData.get("is_active"),
     });
 
@@ -192,6 +199,7 @@ export async function updateFormAction(formData: FormData) {
       admin_email: parsed.data.admin_email,
       redirect_url: parsed.data.redirect_url || null,
       allowed_origins: allowedOrigins.length ? allowedOrigins : null,
+      embed_theme: parsed.data.embed_theme ?? "simple",
       is_active: parsed.data.is_active === "on",
     })
     .eq("id", id)

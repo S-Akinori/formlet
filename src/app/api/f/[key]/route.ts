@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getSystemSmtpSetting, sendSmtpMail } from "@/lib/mail/smtp";
-import { checkRateLimit, getClientIp, hasHoneypot, originAllowed } from "@/lib/spam/checks";
+import { HONEYPOT_KEYS, checkRateLimit, getClientIp, hasHoneypot, originAllowed } from "@/lib/spam/checks";
 import { getMonthStart, isActiveSubscription, PLANS } from "@/lib/billing/plans";
 import { getStripeMode } from "@/lib/stripe/mode";
 import {
@@ -36,12 +36,23 @@ export async function POST(request: Request, { params }: { params: Promise<{ key
   const entries = Object.fromEntries(rawFormData.entries());
 
   const dashboardTest = request.headers.get("x-formlet-dashboard-test") === "1";
+  const embedSubmission = rawFormData.get("_formlet_embed") === "1";
+  const redirectUrl = embedSubmission ? null : form.redirect_url;
+  const { data: fields, error: fieldsError } = await supabase
+    .from("form_fields")
+    .select("field_name, label, input_type, is_required, min_length, max_length, pattern, options")
+    .eq("form_id", form.id)
+    .order("sort_order", { ascending: true });
 
-  if (hasHoneypot(entries)) {
-    return redirectOrJson(request, form.redirect_url, { ok: true }, dashboardTest);
+  if (fieldsError) {
+    return NextResponse.json({ error: "Failed to load validation rules" }, { status: 500 });
   }
 
-  if (!originAllowed(form, request)) {
+  if (hasHoneypot(entries, fields?.map((field) => field.field_name) ?? [])) {
+    return redirectOrJson(request, redirectUrl, { ok: true }, dashboardTest, embedSubmission ? key : undefined);
+  }
+
+  if (!originAllowed(form, request, embedSubmission)) {
     return NextResponse.json({ error: "Origin is not allowed" }, { status: 403 });
   }
 
@@ -53,7 +64,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ key
 
   let data: Record<string, Json>;
   try {
-    data = await normalizeFormData(rawFormData, supabase, form.id);
+    data = await normalizeFormData(rawFormData, supabase, form.id, fields?.map((field) => field.field_name) ?? []);
   } catch (error) {
     if (error instanceof UploadError) {
       return NextResponse.json({ error: error.message }, { status: error.status });
@@ -61,16 +72,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ key
 
     return NextResponse.json({ error: "Failed to upload file" }, { status: 500 });
   }
-  const { data: fields, error: fieldsError } = await supabase
-    .from("form_fields")
-    .select("field_name, label, input_type, is_required, min_length, max_length, pattern, options")
-    .eq("form_id", form.id)
-    .order("sort_order", { ascending: true });
-
-  if (fieldsError) {
-    return NextResponse.json({ error: "Failed to load validation rules" }, { status: 500 });
-  }
-
   const validationErrors = validateSubmission(data, fields ?? []);
   if (validationErrors.length > 0) {
     return NextResponse.json({ error: "Validation failed", details: validationErrors }, { status: 422 });
@@ -115,7 +116,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ key
     createdAt,
   });
 
-  return redirectOrJson(request, form.redirect_url, { ok: true }, dashboardTest);
+  return redirectOrJson(request, redirectUrl, { ok: true }, dashboardTest, embedSubmission ? key : undefined);
 }
 
 async function checkSubmissionLimit(supabase: ReturnType<typeof createAdminClient>, userId: string) {
@@ -147,11 +148,12 @@ async function checkSubmissionLimit(supabase: ReturnType<typeof createAdminClien
   };
 }
 
-async function normalizeFormData(formData: FormData, supabase: ReturnType<typeof createAdminClient>, formId: string) {
+async function normalizeFormData(formData: FormData, supabase: ReturnType<typeof createAdminClient>, formId: string, configuredFieldNames: string[]) {
   const data: Record<string, Json> = {};
+  const configured = new Set(configuredFieldNames);
 
   for (const [key, value] of formData.entries()) {
-    if (["company", "website_url", "_gotcha", "hp_field"].includes(key)) continue;
+    if ((HONEYPOT_KEYS.includes(key) && !configured.has(key)) || key === "_formlet_embed") continue;
     if (value instanceof File) {
       if (!value.name && value.size === 0) continue;
       const uploaded = await uploadSubmittedFile(supabase, formId, value);
@@ -324,8 +326,9 @@ function matchesPattern(value: string, pattern: string) {
   }
 }
 
-function redirectOrJson(request: Request, redirectUrl: string | null, payload: Record<string, boolean>, forceJson = false) {
-  const fallbackUrl = new URL("/thanks", request.url).toString();
+function redirectOrJson(request: Request, redirectUrl: string | null, payload: Record<string, boolean>, forceJson = false, embedKey?: string) {
+  const fallbackPath = embedKey ? `/embed/${embedKey}/thanks` : "/thanks";
+  const fallbackUrl = new URL(fallbackPath, request.url).toString();
   const nextUrl = redirectUrl || fallbackUrl;
 
   if (forceJson || wantsJsonResponse(request)) {

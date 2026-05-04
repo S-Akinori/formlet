@@ -83,7 +83,7 @@ export function FormSubmissionTester({ endpoint, fields }: FormSubmissionTesterP
         {testFields.map((field) => (
           <TestField key={field.field_name} field={field} />
         ))}
-        <input name="company" type="text" className="hidden" tabIndex={-1} autoComplete="off" />
+        <input name="_formlet_hp" type="text" className="hidden" tabIndex={-1} autoComplete="off" />
         <SubmitButton>テスト送信</SubmitButton>
       </form>
       {state.status !== "idle" ? (

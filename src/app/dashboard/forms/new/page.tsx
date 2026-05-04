@@ -31,6 +31,15 @@ export default async function NewFormPage({
           <span className="helper">未入力の場合はFormlet標準の送信完了ページへ遷移します。</span>
         </label>
         <label className="field">
+          <span className="label">埋め込みフォームのデザイン</span>
+          <select className="input" name="embed_theme" defaultValue="simple">
+            <option value="simple">シンプル</option>
+            <option value="shop">店舗向け</option>
+            <option value="compact">LP向けコンパクト</option>
+          </select>
+          <span className="helper">iframeで埋め込むフォームの見た目を選択します。</span>
+        </label>
+        <label className="field">
           <span className="label">許可Origin / Referer</span>
           <textarea className="input min-h-28" name="allowed_origins" placeholder="https://example.com" />
           <span className="helper">1行に1つのoriginを入力します。空欄の場合は制限しません。</span>

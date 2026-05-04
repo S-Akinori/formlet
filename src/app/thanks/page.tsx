@@ -16,30 +16,6 @@ export default function ThanksPage() {
           <p className="mx-auto mt-4 max-w-xl text-sm leading-7 text-zinc-600">
             お問い合わせありがとうございます。入力内容を受け付けました。必要に応じて担当者よりご連絡します。
           </p>
-          <div className="mt-8 grid gap-3 rounded-md border border-line bg-paper p-4 text-left sm:grid-cols-2">
-            <div className="grid grid-cols-[36px_1fr] gap-3">
-              <span className="flex h-9 w-9 items-center justify-center rounded-md bg-white">
-                <PaperPlaneTilt className="h-4 w-4 text-accent" weight="bold" />
-              </span>
-              <div>
-                <p className="text-sm font-semibold text-zinc-950">問い合わせを保存</p>
-                <p className="mt-1 text-xs leading-5 text-zinc-500">送信内容は管理画面に保存されます。</p>
-              </div>
-            </div>
-            <div className="grid grid-cols-[36px_1fr] gap-3">
-              <span className="flex h-9 w-9 items-center justify-center rounded-md bg-white">
-                <EnvelopeSimple className="h-4 w-4 text-accent" weight="bold" />
-              </span>
-              <div>
-                <p className="text-sm font-semibold text-zinc-950">メール通知</p>
-                <p className="mt-1 text-xs leading-5 text-zinc-500">設定に応じて通知メールを送信します。</p>
-              </div>
-            </div>
-          </div>
-          <Link className="button-secondary mt-8" href="/">
-            <ArrowLeft className="h-4 w-4" weight="bold" />
-            Formletへ戻る
-          </Link>
         </div>
       </section>
     </main>

@@ -12,9 +12,19 @@ create table if not exists public.forms (
   admin_email text not null,
   redirect_url text,
   allowed_origins text[],
+  embed_theme text not null default 'simple' check (embed_theme in ('simple', 'shop', 'compact')),
   is_active boolean not null default true,
   created_at timestamptz not null default now()
 );
+
+alter table public.forms add column if not exists embed_theme text not null default 'simple';
+
+alter table public.forms
+drop constraint if exists forms_embed_theme_check;
+
+alter table public.forms
+add constraint forms_embed_theme_check
+check (embed_theme in ('simple', 'shop', 'compact'));
 
 create table if not exists public.user_subscriptions (
   id uuid primary key default gen_random_uuid(),
