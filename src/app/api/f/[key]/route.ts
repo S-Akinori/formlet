@@ -51,10 +51,19 @@ export async function POST(request: Request, { params }: { params: Promise<{ key
     return NextResponse.json({ error: "Too many requests" }, { status: 429 });
   }
 
-  const data = normalizeFormData(rawFormData);
+  let data: Record<string, Json>;
+  try {
+    data = await normalizeFormData(rawFormData, supabase, form.id);
+  } catch (error) {
+    if (error instanceof UploadError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
+
+    return NextResponse.json({ error: "Failed to upload file" }, { status: 500 });
+  }
   const { data: fields, error: fieldsError } = await supabase
     .from("form_fields")
-    .select("field_name, label, input_type, is_required, min_length, max_length, pattern")
+    .select("field_name, label, input_type, is_required, min_length, max_length, pattern, options")
     .eq("form_id", form.id)
     .order("sort_order", { ascending: true });
 
@@ -138,26 +147,70 @@ async function checkSubmissionLimit(supabase: ReturnType<typeof createAdminClien
   };
 }
 
-function normalizeFormData(formData: FormData) {
+async function normalizeFormData(formData: FormData, supabase: ReturnType<typeof createAdminClient>, formId: string) {
   const data: Record<string, Json> = {};
 
   for (const [key, value] of formData.entries()) {
     if (["company", "website_url", "_gotcha", "hp_field"].includes(key)) continue;
     if (value instanceof File) {
-      data[key] = { name: value.name, size: value.size, type: value.type };
+      if (!value.name && value.size === 0) continue;
+      const uploaded = await uploadSubmittedFile(supabase, formId, value);
+      appendFormValue(data, key, uploaded);
       continue;
     }
 
-    if (data[key]) {
-      const existing = data[key];
-      data[key] = Array.isArray(existing) ? [...existing, value] : [existing, value];
-      continue;
-    }
-
-    data[key] = value;
+    appendFormValue(data, key, value);
   }
 
   return data;
+}
+
+async function uploadSubmittedFile(supabase: ReturnType<typeof createAdminClient>, formId: string, file: File): Promise<Json> {
+  const maxBytes = Number(process.env.FORMLET_MAX_FILE_BYTES ?? 10 * 1024 * 1024);
+  if (Number.isFinite(maxBytes) && maxBytes > 0 && file.size > maxBytes) {
+    throw new UploadError("File is too large", 413);
+  }
+
+  const bucket = process.env.FORMLET_UPLOAD_BUCKET ?? "formlet-uploads";
+  const safeName = sanitizeFileName(file.name);
+  const path = `${formId}/${crypto.randomUUID()}-${safeName}`;
+  const { error } = await supabase.storage.from(bucket).upload(path, Buffer.from(await file.arrayBuffer()), {
+    contentType: file.type || "application/octet-stream",
+    upsert: false,
+  });
+
+  if (error) throw new UploadError("Failed to upload file", 500);
+
+  return {
+    name: file.name,
+    size: file.size,
+    type: file.type,
+    bucket,
+    path,
+  };
+}
+
+function sanitizeFileName(value: string) {
+  return value.replace(/[^\w.()-]+/g, "_").slice(0, 120) || "upload";
+}
+
+class UploadError extends Error {
+  constructor(
+    message: string,
+    public readonly status: number,
+  ) {
+    super(message);
+  }
+}
+
+function appendFormValue(data: Record<string, Json>, key: string, value: Json) {
+  if (data[key]) {
+    const existing = data[key];
+    data[key] = Array.isArray(existing) ? [...existing, value] : [existing, value];
+    return;
+  }
+
+  data[key] = value;
 }
 
 function readString(value: Json | undefined) {
@@ -169,11 +222,12 @@ function validateSubmission(
   fields: Array<{
     field_name: string;
     label: string;
-    input_type: "text" | "email" | "url" | "tel" | "number";
+    input_type: "text" | "textarea" | "email" | "url" | "tel" | "number" | "file" | "select" | "checkbox" | "radio";
     is_required: boolean;
     min_length: number | null;
     max_length: number | null;
     pattern: string | null;
+    options: Json;
   }>,
 ) {
   const errors: Array<{ field: string; label: string; message: string }> = [];
@@ -181,9 +235,29 @@ function validateSubmission(
   for (const field of fields) {
     const rawValue = data[field.field_name];
     const value = typeof rawValue === "string" ? rawValue.trim() : "";
+    const values = normalizeSubmittedValues(rawValue);
+    const options = normalizeOptions(field.options);
 
-    if (field.is_required && !value) {
+    if (field.is_required && values.length === 0) {
       errors.push({ field: field.field_name, label: field.label, message: "必須項目です。" });
+      continue;
+    }
+
+    if (values.length === 0) continue;
+
+    if (field.input_type === "file") {
+      const hasFile = values.some((item) => typeof item === "object" && item !== null && !Array.isArray(item) && typeof item.name === "string");
+      if (!hasFile) {
+        errors.push({ field: field.field_name, label: field.label, message: "ファイルを選択してください。" });
+      }
+      continue;
+    }
+
+    if (field.input_type === "select" || field.input_type === "radio" || field.input_type === "checkbox") {
+      const invalid = values.some((item) => typeof item !== "string" || !options.includes(item));
+      if (invalid) {
+        errors.push({ field: field.field_name, label: field.label, message: "選択肢から選んでください。" });
+      }
       continue;
     }
 
@@ -215,6 +289,22 @@ function validateSubmission(
   }
 
   return errors;
+}
+
+function normalizeSubmittedValues(value: Json | undefined): Json[] {
+  if (value === null || value === undefined) return [];
+  const values = Array.isArray(value) ? value : [value];
+  return values.filter((item) => {
+    if (typeof item === "string") return item.trim() !== "";
+    if (typeof item === "object" && item !== null && !Array.isArray(item)) {
+      return typeof item.name !== "string" || item.name.trim() !== "";
+    }
+    return item !== null && item !== undefined;
+  });
+}
+
+function normalizeOptions(value: Json) {
+  return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
 }
 
 function isValidUrl(value: string) {

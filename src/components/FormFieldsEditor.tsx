@@ -5,14 +5,17 @@ import { ListBullets, Plus, Trash } from "@phosphor-icons/react";
 import { saveFormFieldsAction } from "@/app/actions";
 import { SubmitButton } from "@/components/SubmitButton";
 
+export type FormInputType = "text" | "textarea" | "email" | "url" | "tel" | "number" | "file" | "select" | "checkbox" | "radio";
+
 export type FormFieldConfig = {
   field_name: string;
   label: string;
-  input_type?: "text" | "email" | "url" | "tel" | "number";
+  input_type?: FormInputType;
   is_required?: boolean;
   min_length?: number | null;
   max_length?: number | null;
   pattern?: string | null;
+  options?: string[] | null;
 };
 
 type FormFieldsEditorProps = {
@@ -23,7 +26,7 @@ type FormFieldsEditorProps = {
 const defaultFields: FormFieldConfig[] = [
   { field_name: "name", label: "お名前", input_type: "text", is_required: true },
   { field_name: "email", label: "メールアドレス", input_type: "email", is_required: true },
-  { field_name: "message", label: "お問い合わせ内容", input_type: "text", is_required: true },
+  { field_name: "message", label: "お問い合わせ内容", input_type: "textarea", is_required: true },
 ];
 
 export function FormFieldsEditor({ formId, fields }: FormFieldsEditorProps) {
@@ -73,97 +76,128 @@ export function FormFieldsEditor({ formId, fields }: FormFieldsEditorProps) {
           <span />
         </div>
         {rows.map((row, index) => (
-          <div key={index} className="grid gap-3 rounded-md border border-line bg-white p-3 xl:grid-cols-[1fr_1fr_120px_86px_88px_88px_1fr_40px] xl:items-start">
-            <label className="field">
-              <span className="label xl:hidden">name属性</span>
-              <input
-                className="input font-mono"
-                name="field_name"
-                pattern="[A-Za-z][A-Za-z0-9_.:-]*"
-                required
-                value={row.field_name}
-                onChange={(event) => updateRow(index, "field_name", event.target.value)}
-                placeholder="company"
-              />
-            </label>
-            <label className="field">
-              <span className="label xl:hidden">表示名</span>
-              <input
-                className="input"
-                name="field_label"
-                required
-                value={row.label}
-                onChange={(event) => updateRow(index, "label", event.target.value)}
-                placeholder="会社名"
-              />
-            </label>
-            <label className="field">
-              <span className="label xl:hidden">型</span>
-              <select
-                className="input"
-                name="input_type"
-                value={row.input_type ?? "text"}
-                onChange={(event) => updateRow(index, "input_type", event.target.value)}
+          <div key={index} className="grid gap-3 rounded-md border border-line bg-white p-3">
+            <div className="grid gap-3 xl:grid-cols-[1fr_1fr_150px_86px_88px_88px_1fr_40px] xl:items-start">
+              <label className="field">
+                <span className="label xl:hidden">name属性</span>
+                <input
+                  className="input font-mono"
+                  name="field_name"
+                  pattern="[A-Za-z][A-Za-z0-9_.:-]*"
+                  required
+                  value={row.field_name}
+                  onChange={(event) => updateRow(index, "field_name", event.target.value)}
+                  placeholder="company"
+                />
+              </label>
+              <label className="field">
+                <span className="label xl:hidden">表示名</span>
+                <input
+                  className="input"
+                  name="field_label"
+                  required
+                  value={row.label}
+                  onChange={(event) => updateRow(index, "label", event.target.value)}
+                  placeholder="会社名"
+                />
+              </label>
+              <label className="field">
+                <span className="label xl:hidden">型</span>
+                <select
+                  className="input"
+                  name="input_type"
+                  value={row.input_type ?? "text"}
+                  onChange={(event) => updateRow(index, "input_type", event.target.value as FormInputType)}
+                >
+                  <option value="text">一行テキスト</option>
+                  <option value="textarea">複数行テキスト</option>
+                  <option value="email">メール</option>
+                  <option value="url">URL</option>
+                  <option value="tel">電話番号</option>
+                  <option value="number">数値</option>
+                  <option value="file">ファイル</option>
+                  <option value="select">プルダウン</option>
+                  <option value="checkbox">チェックボックス</option>
+                  <option value="radio">ラジオボタン</option>
+                </select>
+              </label>
+              <label className="flex items-center gap-3 pt-1 text-sm font-medium text-zinc-800 xl:pt-3">
+                <input name="is_required" type="hidden" value={row.is_required ? "on" : "off"} />
+                <input
+                  className="h-4 w-4 rounded border-line text-accent"
+                  type="checkbox"
+                  checked={Boolean(row.is_required)}
+                  onChange={(event) => updateRow(index, "is_required", event.target.checked)}
+                />
+                必須
+              </label>
+              <label className="field">
+                <span className="label xl:hidden">最小文字数</span>
+                <input
+                  className="input"
+                  name="min_length"
+                  type="number"
+                  min={0}
+                  readOnly={!usesTextValidation(row.input_type)}
+                  value={row.min_length ?? ""}
+                  onChange={(event) => updateRow(index, "min_length", event.target.value ? Number(event.target.value) : null)}
+                />
+              </label>
+              <label className="field">
+                <span className="label xl:hidden">最大文字数</span>
+                <input
+                  className="input"
+                  name="max_length"
+                  type="number"
+                  min={0}
+                  readOnly={!usesTextValidation(row.input_type)}
+                  value={row.max_length ?? ""}
+                  onChange={(event) => updateRow(index, "max_length", event.target.value ? Number(event.target.value) : null)}
+                />
+              </label>
+              <label className="field">
+                <span className="label xl:hidden">正規表現</span>
+                <input
+                  className="input font-mono"
+                  name="pattern"
+                  readOnly={!usesTextValidation(row.input_type)}
+                  value={row.pattern ?? ""}
+                  onChange={(event) => updateRow(index, "pattern", event.target.value)}
+                  placeholder="^[A-Z0-9]+$"
+                />
+              </label>
+              <button
+                className="button-secondary h-10 px-0"
+                type="button"
+                onClick={() => removeRow(index)}
+                disabled={rows.length <= 1}
+                aria-label="項目を削除"
+                title="項目を削除"
               >
-                <option value="text">text</option>
-                <option value="email">email</option>
-                <option value="url">url</option>
-                <option value="tel">tel</option>
-                <option value="number">number</option>
-              </select>
-            </label>
-            <label className="flex items-center gap-3 pt-1 text-sm font-medium text-zinc-800 xl:pt-3">
-              <input name="is_required" type="hidden" value={row.is_required ? "on" : "off"} />
-              <input
-                className="h-4 w-4 rounded border-line text-accent"
-                type="checkbox"
-                checked={Boolean(row.is_required)}
-                onChange={(event) => updateRow(index, "is_required", event.target.checked)}
-              />
-              必須
-            </label>
-            <label className="field">
-              <span className="label xl:hidden">最小文字数</span>
-              <input
-                className="input"
-                name="min_length"
-                type="number"
-                min={0}
-                value={row.min_length ?? ""}
-                onChange={(event) => updateRow(index, "min_length", event.target.value ? Number(event.target.value) : null)}
-              />
-            </label>
-            <label className="field">
-              <span className="label xl:hidden">最大文字数</span>
-              <input
-                className="input"
-                name="max_length"
-                type="number"
-                min={0}
-                value={row.max_length ?? ""}
-                onChange={(event) => updateRow(index, "max_length", event.target.value ? Number(event.target.value) : null)}
-              />
-            </label>
-            <label className="field">
-              <span className="label xl:hidden">正規表現</span>
-              <input
-                className="input font-mono"
-                name="pattern"
-                value={row.pattern ?? ""}
-                onChange={(event) => updateRow(index, "pattern", event.target.value)}
-                placeholder="^[A-Z0-9]+$"
-              />
-            </label>
-            <button
-              className="button-secondary h-10 px-0"
-              type="button"
-              onClick={() => removeRow(index)}
-              disabled={rows.length <= 1}
-              aria-label="項目を削除"
-              title="項目を削除"
-            >
-              <Trash className="h-4 w-4" weight="bold" />
-            </button>
+                <Trash className="h-4 w-4" weight="bold" />
+              </button>
+            </div>
+            {usesOptions(row.input_type) ? (
+              <label className="field">
+                <span className="label">選択肢</span>
+                <textarea
+                  className="input min-h-24 font-mono text-xs leading-6"
+                  name="options_lines"
+                  value={(row.options ?? []).join("\n")}
+                  onChange={(event) =>
+                    updateRow(
+                      index,
+                      "options",
+                      event.target.value.split(/\r?\n/),
+                    )
+                  }
+                  placeholder={"お問い合わせ\n資料請求\nその他"}
+                />
+                <span className="helper">1行に1つ入力します。</span>
+              </label>
+            ) : (
+              <input name="options_lines" type="hidden" value="" />
+            )}
           </div>
         ))}
         {hasDuplicate ? (
@@ -179,4 +213,12 @@ export function FormFieldsEditor({ formId, fields }: FormFieldsEditorProps) {
       </div>
     </form>
   );
+}
+
+function usesOptions(inputType: FormInputType | undefined) {
+  return inputType === "select" || inputType === "checkbox" || inputType === "radio";
+}
+
+function usesTextValidation(inputType: FormInputType | undefined) {
+  return inputType === "text" || inputType === "textarea" || inputType === "email" || inputType === "url" || inputType === "tel" || inputType === "number";
 }

@@ -16,6 +16,7 @@ import { SubmitButton } from "@/components/SubmitButton";
 import { FormSubmissionTester } from "@/components/FormSubmissionTester";
 import { FormFieldsEditor } from "@/components/FormFieldsEditor";
 import { notFound } from "next/navigation";
+import type { Json } from "@/lib/supabase/types";
 
 export default async function FormDetailPage({
   params,
@@ -32,7 +33,7 @@ export default async function FormDetailPage({
     supabase.from("form_email_settings").select("*").eq("form_id", id).maybeSingle(),
     supabase
       .from("form_fields")
-      .select("field_name, label, input_type, is_required, min_length, max_length, pattern")
+      .select("field_name, label, input_type, is_required, min_length, max_length, pattern, options")
       .eq("form_id", id)
       .order("sort_order", { ascending: true }),
   ]);
@@ -41,7 +42,10 @@ export default async function FormDetailPage({
 
   const endpoint = `${process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"}/api/f/${form.endpoint_key}`;
   const statusLabel = form.is_active ? "有効" : "無効";
-  const fields = formFields ?? [];
+  const fields = (formFields ?? []).map((field) => ({
+    ...field,
+    options: normalizeOptions(field.options),
+  }));
   const sampleHtml = buildSampleHtml(endpoint, fields);
 
   return (
@@ -224,15 +228,17 @@ function buildSampleHtml(endpoint: string, fields: Array<{
   min_length?: number | null;
   max_length?: number | null;
   pattern?: string | null;
+  options?: string[] | null;
 }>) {
-  const htmlFields = (fields.length
+  const sampleFields = fields.length
     ? fields
     : [
         { field_name: "name", label: "お名前", input_type: "text", is_required: true },
         { field_name: "email", label: "メールアドレス", input_type: "email", is_required: true },
-        { field_name: "message", label: "お問い合わせ内容", input_type: "text", is_required: true },
-      ]
-  )
+        { field_name: "message", label: "お問い合わせ内容", input_type: "textarea", is_required: true },
+      ];
+  const hasFile = sampleFields.some((field) => field.input_type === "file");
+  const htmlFields = sampleFields
     .map((field) => {
       const attrs = [
         field.is_required ? " required" : "",
@@ -241,8 +247,26 @@ function buildSampleHtml(endpoint: string, fields: Array<{
         field.pattern ? ` pattern="${field.pattern}"` : "",
       ].join("");
 
-      if (field.field_name === "message") {
+      if (field.input_type === "textarea") {
         return `  <label>${field.label}<textarea name="${field.field_name}"${attrs}></textarea></label>`;
+      }
+
+      if (field.input_type === "select") {
+        const options = (field.options ?? []).map((option) => `    <option value="${escapeAttribute(option)}">${escapeHtml(option)}</option>`).join("\n");
+        return `  <label>${field.label}<select name="${field.field_name}"${attrs}>
+${options}
+  </select></label>`;
+      }
+
+      if (field.input_type === "checkbox" || field.input_type === "radio") {
+        const type = field.input_type;
+        const choiceAttrs = type === "radio" ? attrs : attrs.replace(" required", "");
+        return `  <fieldset>
+    <legend>${field.label}</legend>
+${(field.options ?? [])
+  .map((option) => `    <label><input name="${field.field_name}" type="${type}" value="${escapeAttribute(option)}"${choiceAttrs}> ${escapeHtml(option)}</label>`)
+  .join("\n")}
+  </fieldset>`;
       }
 
       const type = field.input_type && field.input_type !== "text" ? ` type="${field.input_type}"` : "";
@@ -250,11 +274,28 @@ function buildSampleHtml(endpoint: string, fields: Array<{
     })
     .join("\n");
 
-  return `<form action="${endpoint}" method="POST">
+  return `<form action="${endpoint}" method="POST"${hasFile ? ' enctype="multipart/form-data"' : ""}>
 ${htmlFields}
   <input name="company" hidden>
   <button type="submit">Send</button>
 </form>`;
+}
+
+function normalizeOptions(value: Json | undefined) {
+  return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
+}
+
+function escapeAttribute(value: string) {
+  return escapeHtml(value).replace(/`/g, "&#096;");
+}
+
+function escapeHtml(value: string) {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
 }
 
 function SectionHeader({

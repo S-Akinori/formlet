@@ -18,7 +18,7 @@ type FormSubmissionTesterProps = {
 const fallbackFields: FormFieldConfig[] = [
   { field_name: "name", label: "お名前", input_type: "text", is_required: true },
   { field_name: "email", label: "メールアドレス", input_type: "email", is_required: true },
-  { field_name: "message", label: "お問い合わせ内容", input_type: "text", is_required: true },
+  { field_name: "message", label: "お問い合わせ内容", input_type: "textarea", is_required: true },
 ];
 
 export function FormSubmissionTester({ endpoint, fields }: FormSubmissionTesterProps) {
@@ -80,35 +80,9 @@ export function FormSubmissionTester({ endpoint, fields }: FormSubmissionTesterP
         </div>
       </div>
       <form action={submitTest} className="grid gap-4 p-5">
-        {testFields.map((field) =>
-          field.field_name === "message" ? (
-            <label key={field.field_name} className="field">
-              <span className="label">{field.label}</span>
-              <textarea
-                className="input min-h-24"
-                name={field.field_name}
-                defaultValue="This is a dashboard test submission."
-                required={field.is_required}
-                minLength={field.min_length ?? undefined}
-                maxLength={field.max_length ?? undefined}
-              />
-            </label>
-          ) : (
-            <label key={field.field_name} className="field">
-              <span className="label">{field.label}</span>
-              <input
-                className="input"
-                name={field.field_name}
-                type={field.input_type ?? (field.field_name === "email" ? "email" : "text")}
-                defaultValue={getDefaultValue(field.field_name)}
-                required={field.is_required}
-                minLength={field.min_length ?? undefined}
-                maxLength={field.max_length ?? undefined}
-                pattern={field.pattern ?? undefined}
-              />
-            </label>
-          ),
-        )}
+        {testFields.map((field) => (
+          <TestField key={field.field_name} field={field} />
+        ))}
         <input name="company" type="text" className="hidden" tabIndex={-1} autoComplete="off" />
         <SubmitButton>テスト送信</SubmitButton>
       </form>
@@ -132,6 +106,80 @@ export function FormSubmissionTester({ endpoint, fields }: FormSubmissionTesterP
         </div>
       ) : null}
     </div>
+  );
+}
+
+function TestField({ field }: { field: FormFieldConfig }) {
+  const options = field.options ?? [];
+
+  if (field.input_type === "textarea") {
+    return (
+      <label className="field">
+        <span className="label">{field.label}</span>
+        <textarea
+          className="input min-h-24"
+          name={field.field_name}
+          defaultValue="This is a dashboard test submission."
+          required={field.is_required}
+          minLength={field.min_length ?? undefined}
+          maxLength={field.max_length ?? undefined}
+        />
+      </label>
+    );
+  }
+
+  if (field.input_type === "select") {
+    return (
+      <label className="field">
+        <span className="label">{field.label}</span>
+        <select className="input" name={field.field_name} required={field.is_required} defaultValue={options[0] ?? ""}>
+          {!field.is_required ? <option value="">未選択</option> : null}
+          {options.map((option) => (
+            <option key={option} value={option}>
+              {option}
+            </option>
+          ))}
+        </select>
+      </label>
+    );
+  }
+
+  if (field.input_type === "checkbox" || field.input_type === "radio") {
+    return (
+      <fieldset className="field">
+        <legend className="label">{field.label}</legend>
+        <div className="grid gap-2 rounded-md border border-line bg-white px-3 py-2.5">
+          {options.map((option, index) => (
+            <label key={option} className="flex items-center gap-3 text-sm text-zinc-800">
+              <input
+                className="h-4 w-4 rounded border-line text-accent"
+                name={field.field_name}
+                type={field.input_type}
+                value={option}
+                defaultChecked={index === 0 && Boolean(field.is_required)}
+              />
+              {option}
+            </label>
+          ))}
+        </div>
+      </fieldset>
+    );
+  }
+
+  return (
+    <label className="field">
+      <span className="label">{field.label}</span>
+      <input
+        className="input"
+        name={field.field_name}
+        type={field.input_type === "file" ? "file" : field.input_type ?? (field.field_name === "email" ? "email" : "text")}
+        defaultValue={field.input_type === "file" ? undefined : getDefaultValue(field.field_name)}
+        required={field.is_required}
+        minLength={field.min_length ?? undefined}
+        maxLength={field.max_length ?? undefined}
+        pattern={field.pattern ?? undefined}
+      />
+    </label>
   );
 }
 

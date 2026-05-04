@@ -1,5 +1,9 @@
 create extension if not exists "pgcrypto";
 
+insert into storage.buckets (id, name, public, file_size_limit)
+values ('formlet-uploads', 'formlet-uploads', false, 10485760)
+on conflict (id) do nothing;
+
 create table if not exists public.forms (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
@@ -95,11 +99,12 @@ create table if not exists public.form_fields (
   form_id uuid not null references public.forms(id) on delete cascade,
   field_name text not null,
   label text not null,
-  input_type text not null default 'text' check (input_type in ('text', 'email', 'url', 'tel', 'number')),
+  input_type text not null default 'text' check (input_type in ('text', 'textarea', 'email', 'url', 'tel', 'number', 'file', 'select', 'checkbox', 'radio')),
   is_required boolean not null default false,
   min_length int,
   max_length int,
   pattern text,
+  options jsonb not null default '[]'::jsonb,
   sort_order int not null default 0,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
@@ -111,6 +116,19 @@ alter table public.form_fields add column if not exists is_required boolean not 
 alter table public.form_fields add column if not exists min_length int;
 alter table public.form_fields add column if not exists max_length int;
 alter table public.form_fields add column if not exists pattern text;
+alter table public.form_fields add column if not exists options jsonb not null default '[]'::jsonb;
+
+alter table public.form_fields
+drop constraint if exists form_fields_input_type_check;
+
+alter table public.form_fields
+add constraint form_fields_input_type_check
+check (input_type in ('text', 'textarea', 'email', 'url', 'tel', 'number', 'file', 'select', 'checkbox', 'radio'));
+
+update public.form_fields
+set input_type = 'textarea'
+where field_name = 'message'
+and input_type = 'text';
 
 create table if not exists public.email_templates (
   id uuid primary key default gen_random_uuid(),

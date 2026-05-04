@@ -26,10 +26,10 @@ export const DEFAULT_REPLY_BODY = `<p>{name} 様</p>
 <p>内容を確認し、必要に応じてご連絡いたします。</p>`;
 
 export function renderTemplate(template: string, vars: TemplateVars) {
-  return template.replace(/\{([a-zA-Z0-9_]+)\}/g, (_, rawKey: string) => {
+  return template.replace(/\{([a-zA-Z0-9_.:-]+)\}/g, (_, rawKey: string) => {
     const key = rawKey as keyof TemplateVars;
     const value = vars[key] ?? vars.data[rawKey] ?? "";
-    return escapeHtml(String(value ?? ""));
+    return escapeHtml(formatTemplateValue(value));
   });
 }
 
@@ -49,4 +49,16 @@ function escapeHtml(input: string) {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#039;");
+}
+
+function formatTemplateValue(value: Json | undefined): string {
+  if (value === null || value === undefined) return "";
+  if (Array.isArray(value)) return value.map(formatTemplateValue).filter(Boolean).join(", ");
+  if (typeof value === "object") {
+    const file = value as { name?: Json; size?: Json; type?: Json };
+    if (typeof file.name === "string") return file.name;
+    return JSON.stringify(value);
+  }
+
+  return String(value);
 }

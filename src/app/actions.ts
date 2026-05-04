@@ -154,7 +154,7 @@ export async function createFormAction(formData: FormData) {
   await supabase.from("form_fields").insert([
     { form_id: form.id, field_name: "name", label: "お名前", input_type: "text", is_required: true, sort_order: 0 },
     { form_id: form.id, field_name: "email", label: "メールアドレス", input_type: "email", is_required: true, sort_order: 1 },
-    { form_id: form.id, field_name: "message", label: "お問い合わせ内容", input_type: "text", is_required: true, sort_order: 2 },
+    { form_id: form.id, field_name: "message", label: "お問い合わせ内容", input_type: "textarea", is_required: true, sort_order: 2 },
   ]);
 
   revalidatePath("/dashboard");
@@ -347,6 +347,7 @@ export async function saveFormFieldsAction(formData: FormData) {
   const minLengths = formData.getAll("min_length").map((value) => String(value).trim());
   const maxLengths = formData.getAll("max_length").map((value) => String(value).trim());
   const patterns = formData.getAll("pattern").map((value) => String(value).trim());
+  const optionLines = formData.getAll("options_lines").map((value) => String(value));
 
   const { data: form } = await supabase
     .from("forms")
@@ -359,22 +360,27 @@ export async function saveFormFieldsAction(formData: FormData) {
 
   const seen = new Set<string>();
   const fields = fieldNames
-    .map((fieldName, index) => ({
-      form_id: formId,
-      field_name: fieldName,
-      label: labels[index] || fieldName,
-      input_type: parseInputType(inputTypes[index]),
-      is_required: requiredFlags[index] === "on",
-      min_length: parseNullableInt(minLengths[index]),
-      max_length: parseNullableInt(maxLengths[index]),
-      pattern: patterns[index] || null,
-      sort_order: index,
-      updated_at: new Date().toISOString(),
-    }))
+    .map((fieldName, index) => {
+      const inputType = parseInputType(inputTypes[index]);
+      return {
+        form_id: formId,
+        field_name: fieldName,
+        label: labels[index] || fieldName,
+        input_type: inputType,
+        is_required: requiredFlags[index] === "on",
+        min_length: usesTextValidation(inputType) ? parseNullableInt(minLengths[index]) : null,
+        max_length: usesTextValidation(inputType) ? parseNullableInt(maxLengths[index]) : null,
+        pattern: usesTextValidation(inputType) ? patterns[index] || null : null,
+        options: usesOptions(inputType) ? parseOptions(optionLines[index]) : [],
+        sort_order: index,
+        updated_at: new Date().toISOString(),
+      };
+    })
     .filter((field) => {
       if (!field.field_name || !field.label || seen.has(field.field_name)) return false;
       seen.add(field.field_name);
-      return /^[a-zA-Z][a-zA-Z0-9_.:-]*$/.test(field.field_name);
+      if (!/^[a-zA-Z][a-zA-Z0-9_.:-]*$/.test(field.field_name)) return false;
+      return !usesOptions(field.input_type) || field.options.length > 0;
     });
 
   if (fields.length === 0) redirect(`/dashboard/forms/${formId}?error=invalid`);
@@ -434,8 +440,22 @@ async function requireAnonymousClient() {
   return { supabase };
 }
 
-function parseInputType(value: string | undefined): "text" | "email" | "url" | "tel" | "number" {
-  if (value === "email" || value === "url" || value === "tel" || value === "number") return value;
+type FormInputType = "text" | "textarea" | "email" | "url" | "tel" | "number" | "file" | "select" | "checkbox" | "radio";
+
+function parseInputType(value: string | undefined): FormInputType {
+  if (
+    value === "textarea" ||
+    value === "email" ||
+    value === "url" ||
+    value === "tel" ||
+    value === "number" ||
+    value === "file" ||
+    value === "select" ||
+    value === "checkbox" ||
+    value === "radio"
+  ) {
+    return value;
+  }
   return "text";
 }
 
@@ -443,4 +463,23 @@ function parseNullableInt(value: string | undefined) {
   if (!value) return null;
   const parsed = Number(value);
   return Number.isInteger(parsed) && parsed >= 0 ? parsed : null;
+}
+
+function parseOptions(value: string | undefined) {
+  return Array.from(
+    new Set(
+      (value ?? "")
+        .split(/\r?\n/)
+        .map((line) => line.trim())
+        .filter(Boolean),
+    ),
+  );
+}
+
+function usesOptions(inputType: FormInputType) {
+  return inputType === "select" || inputType === "checkbox" || inputType === "radio";
+}
+
+function usesTextValidation(inputType: FormInputType) {
+  return inputType === "text" || inputType === "textarea" || inputType === "email" || inputType === "url" || inputType === "tel" || inputType === "number";
 }

@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { markSubmissionReadAction } from "@/app/actions";
 import { requireUser } from "@/lib/auth";
 import { getCurrentPlan, getRetentionStart } from "@/lib/billing/plans";
+import { createAdminClient } from "@/lib/supabase/admin";
 import type { Json } from "@/lib/supabase/types";
 
 export default async function SubmissionDetailPage({
@@ -29,6 +30,7 @@ export default async function SubmissionDetailPage({
 
   const data = submission.data as Record<string, Json>;
   const labelMap = new Map((fields ?? []).map((field) => [field.field_name, field.label]));
+  const fileUrls = await createFileUrlMap(data);
   const orderedEntries = [
     ...(fields ?? [])
       .filter((field) => Object.prototype.hasOwnProperty.call(data, field.field_name))
@@ -55,7 +57,9 @@ export default async function SubmissionDetailPage({
                   <span className="block text-sm font-medium text-zinc-800">{labelMap.get(key) ?? key}</span>
                   <span className="mt-1 block font-mono text-xs text-zinc-500">{key}</span>
                 </dt>
-                <dd className="whitespace-pre-wrap text-sm leading-6 text-zinc-900">{String(value ?? "")}</dd>
+                <dd className="whitespace-pre-wrap text-sm leading-6 text-zinc-900">
+                  <SubmissionValue value={value} fileUrls={fileUrls} />
+                </dd>
               </div>
             ))}
           </dl>
@@ -82,6 +86,93 @@ export default async function SubmissionDetailPage({
       </section>
     </div>
   );
+}
+
+function SubmissionValue({ value, fileUrls }: { value: Json | undefined; fileUrls: Map<string, string> }) {
+  const file = getFileValue(value);
+  if (file?.path && file.name) {
+    const href = fileUrls.get(file.path);
+    return href ? (
+      <a className="font-medium text-accent hover:underline" href={href} target="_blank" rel="noreferrer">
+        {formatSubmissionValue(value)}
+      </a>
+    ) : (
+      <span>{formatSubmissionValue(value)}</span>
+    );
+  }
+
+  if (Array.isArray(value) && value.some(getFileValue)) {
+    return (
+      <span className="grid gap-1">
+        {value.map((item, index) => {
+          const itemFile = getFileValue(item);
+          const href = itemFile?.path ? fileUrls.get(itemFile.path) : undefined;
+          return href ? (
+            <a key={index} className="font-medium text-accent hover:underline" href={href} target="_blank" rel="noreferrer">
+              {formatSubmissionValue(item)}
+            </a>
+          ) : (
+            <span key={index}>{formatSubmissionValue(item)}</span>
+          );
+        })}
+      </span>
+    );
+  }
+
+  return <span>{formatSubmissionValue(value)}</span>;
+}
+
+async function createFileUrlMap(data: Record<string, Json>) {
+  const files = Object.values(data).flatMap(collectFiles);
+  const admin = createAdminClient();
+  const entries = await Promise.all(
+    files.map(async (file) => {
+      if (!file.bucket || !file.path) return null;
+      const { data: signed } = await admin.storage.from(file.bucket).createSignedUrl(file.path, 60 * 60);
+      return signed?.signedUrl ? ([file.path, signed.signedUrl] as const) : null;
+    }),
+  );
+
+  return new Map(entries.filter((entry): entry is readonly [string, string] => Boolean(entry)));
+}
+
+function collectFiles(value: Json | undefined): Array<{ name?: string; bucket?: string; path?: string }> {
+  if (Array.isArray(value)) return value.flatMap(collectFiles);
+  const file = getFileValue(value);
+  return file ? [file] : [];
+}
+
+function getFileValue(value: Json | undefined): { name?: string; bucket?: string; path?: string } | null {
+  if (!value || Array.isArray(value) || typeof value !== "object") return null;
+  const file = value as { name?: Json; bucket?: Json; path?: Json };
+  if (typeof file.name !== "string") return null;
+  return {
+    name: file.name,
+    bucket: typeof file.bucket === "string" ? file.bucket : undefined,
+    path: typeof file.path === "string" ? file.path : undefined,
+  };
+}
+
+function formatSubmissionValue(value: Json | undefined): string {
+  if (value === null || value === undefined) return "";
+  if (Array.isArray(value)) return value.map(formatSubmissionValue).filter(Boolean).join(", ");
+  if (typeof value === "object") {
+    const file = value as { name?: Json; size?: Json; type?: Json };
+    if (typeof file.name === "string") {
+      const size = typeof file.size === "number" ? ` / ${formatBytes(file.size)}` : "";
+      const type = typeof file.type === "string" && file.type ? ` / ${file.type}` : "";
+      return `${file.name}${size}${type}`;
+    }
+    return JSON.stringify(value, null, 2);
+  }
+
+  return String(value);
+}
+
+function formatBytes(value: number): string {
+  if (value < 1024) return `${value} B`;
+  if (value < 1024 * 1024) return `${(value / 1024).toFixed(1)} KB`;
+  return `${(value / 1024 / 1024).toFixed(1)} MB`;
 }
 
 function Meta({ label, value }: { label: string; value: string }) {
